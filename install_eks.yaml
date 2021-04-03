@@ -42,16 +42,9 @@
       - mv aws-iam-authenticator /usr/bin/
   - name: Install kubectl
     shell: |
-      cat <<EOF > /etc/yum.repos.d/kubernetes.repo
-      [kubernetes]
-      name=Kubernetes
-      baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-      enabled=1
-      gpgcheck=1
-      repo_gpgcheck=1
-      gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-      EOF
-      yum install -y kubectl
+      curl -sLO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+      ln -s /usr/local/bin/kubectl /usr/bin/kubectl
   - name: Git clone
     ansible.builtin.git:
       repo: 'https://github.com/hashicorp/learn-terraform-provision-eks-cluster'
