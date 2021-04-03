@@ -1,0 +1,2 @@
+- include: install_eks.yaml
+- include: install_app.yaml

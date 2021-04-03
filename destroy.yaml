@@ -1,0 +1,11 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+  become: yes
+  tasks:
+  - name: Deleting k8s APP
+    shell: kubectl delete -k ./ || true
+  - name: Deleting Terraform Infra
+    community.general.terraform:
+      project_path: '/terraform-provision-eks-cluster/'
+      state: absent

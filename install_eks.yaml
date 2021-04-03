@@ -1,0 +1,68 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+  become: yes
+  vars:
+    terraform_version: 0.14.6
+  tasks:
+  - name: Updating packages
+    shell: yum update
+  - name: Install the dependencies
+    ansible.builtin.package:
+      name:
+        - wget
+        - git
+      state: present
+  - name: Installing AWS-CLI 2.x
+    shell: |
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      unzip awscliv2.zip
+      sudo ./aws/install
+      ./aws/install -i /usr/local/aws-cli -b /usr/local/bin --update
+      ln -nsf /usr/local/bin/aws /usr/bin/aws
+      rm -rf awscliv2.zip
+  - name: Downloading Terraform package
+    command: wget https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip
+    retries: 6
+    delay: 30
+    register: result
+    until: result.rc == 0
+  - name: Installing Terraform
+    shell: |
+      unzip terraform_{{ terraform_version }}_linux_amd64.zip
+      mv terraform /usr/bin/
+      rm -rf terraform_{{ terraform_version }}_linux_amd64.zip
+  - name: Install aws-iam-authenticator
+    shell: "{{ item }}"
+    with_items:
+      - curl -o aws-iam-authenticator https://amazon-eks.s3.us-west-2.amazonaws.com/1.18.9/2020-11-02/bin/linux/amd64/aws-iam-authenticator
+      - chmod +x ./aws-iam-authenticator
+      - mkdir -p $HOME/bin && cp ./aws-iam-authenticator $HOME/bin/aws-iam-authenticator && export PATH=$PATH:$HOME/bin
+      - echo 'export PATH=$PATH:$HOME/bin' >> ~/.bashrc
+      - mv aws-iam-authenticator /usr/bin/
+  - name: Install kubectl
+    shell: |
+      cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+      [kubernetes]
+      name=Kubernetes
+      baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+      enabled=1
+      gpgcheck=1
+      repo_gpgcheck=1
+      gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+      EOF
+      yum install -y kubectl
+  - name: Git clone
+    ansible.builtin.git:
+      repo: 'https://github.com/hashicorp/learn-terraform-provision-eks-cluster'
+      dest: terraform-provision-eks-cluster
+      update: no
+  - name: Basic deploy of terraform
+    community.general.terraform:
+      project_path: 'terraform-provision-eks-cluster/'
+      state: present
+      force_init: true
+  - name: Kubeconfig Setup
+    shell: |
+      cd terraform-provision-eks-cluster
+      aws eks --region $(terraform output -raw region) update-kubeconfig --name $(terraform output -raw cluster_name)

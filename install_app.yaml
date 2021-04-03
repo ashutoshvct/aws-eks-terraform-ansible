@@ -1,0 +1,36 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+  become: yes
+  tasks:
+  - name: Checking if cluster is up or not
+    command: kubectl --kubeconfig /root/.kube/config get all
+    retries: 3
+    delay: 30
+    register: result
+    until: result.rc == 0
+  - name: Setting up app
+    shell: |
+      curl -sLO https://k8s.io/examples/application/wordpress/mysql-deployment.yaml
+      curl -sLO https://k8s.io/examples/application/wordpress/wordpress-deployment.yaml
+      cat <<EOF >./kustomization.yaml
+      secretGenerator:
+      - name: mysql-pass
+        literals:
+        - password=YOUR_PASSWORD
+      EOF
+      cat <<EOF >>./kustomization.yaml
+      resources:
+        - mysql-deployment.yaml
+        - wordpress-deployment.yaml
+      EOF
+      kubectl --kubeconfig /root/.kube/config apply -k ./
+  - name: Getting LoadBalancer name
+    shell: kubectl --kubeconfig /root/.kube/config get svc -o jsonpath='{.items[?(@.metadata.name=="wordpress")].status.loadBalancer.ingress[0].hostname}'
+    register: awselb
+  - name: Checking if website is up or not
+    command: curl -sI "{{ awselb.stdout }}"
+    retries: 15
+    delay: 60
+    register: site
+    until: site.rc == 0
