@@ -7,5 +7,5 @@
     shell: kubectl delete -k ./ || true
   - name: Deleting Terraform Infra
     community.general.terraform:
-      project_path: '/terraform-provision-eks-cluster/'
+      project_path: 'terraform-provision-eks-cluster/'
       state: absent
